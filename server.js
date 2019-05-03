@@ -94,10 +94,10 @@ function getLocationData(query){
     .then((data) => {
       console.log('[?]Check Database for location');
       if(data.rowCount > 0){
-        console.log('[!]Get location from Database');
+        console.log('[!]Load: Get location from Database');
         return data.rows[0];
       }else{
-        console.log('[!]Getting Location');
+        console.log('[!]API Call: Getting Location');
         const geocodeURL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
         return superagent.get(geocodeURL)
           .then( res => {
@@ -153,12 +153,12 @@ function getData(tableName, request, response) {
   client.query(sqlStatement, values)
     .then((data) => {
       if(data.rowCount > 0){
-        console.log(`[!]Load ${request.query.data.search_query} from Database`);
+        console.log(`[!]Load: Attempting to load ${request.query.data.search_query} from Database`);
         let dataTimeCreated = data.rows[0].created_at;
         let now = Date.now();
         if(now - dataTimeCreated > expires[tableName]){
           let sqlDeleteStatement = `DELETE FROM ${tableName} WHERE location_id = $1`;
-          console.log(`[!]Delete ${request.query.data.search_query} from Database table ${tableName}`);
+          console.log(`[!]Delete: Deleteing ${request.query.data.search_query} from Database table ${tableName}`);
           client.query(sqlDeleteStatement, values)
             .then(() => {
               dataCurrentFunction[tableName](request, response);
@@ -173,7 +173,7 @@ function getData(tableName, request, response) {
 }
 
 function getCurrentWeatherData(request, response){
-  console.log('[!]Getting weathers');
+  console.log('[!]API Call: Getting weathers');
   let lat = request.query.data.latitude;
   let long = request.query.data.longitude;
   let weatherURL = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${lat},${long}`;
@@ -194,7 +194,7 @@ function getCurrentWeatherData(request, response){
 
 
 function getCurrentEventsData(request, response) {
-  console.log('[!]Getting events');
+  console.log('[!]API Call: Getting events');
   let lat = request.query.data.latitude;
   let long = request.query.data.longitude;
   let eventsURL = `https://www.eventbriteapi.com/v3/events/search?location.latitude=${lat}&location.longitude=${long}&token=${process.env.EVENTBRITE_API_KEY}`;
@@ -204,7 +204,6 @@ function getCurrentEventsData(request, response) {
         const newEvent = new Event(eventData);
         let sqlInsertStatement = 'INSERT INTO events(link, name, event_date, summary, created_at, location_id) VALUES ( $1, $2, $3, $4, $5, $6);';
         let values = Object.values(newEvent);
-        // console.log('Into DB', sqlInsertStatement, values.concat([Date.now(), request.query.data.id]));
         client.query(sqlInsertStatement, values.concat([Date.now(), request.query.data.id]));
         return newEvent;
       });
@@ -214,7 +213,7 @@ function getCurrentEventsData(request, response) {
 }
 
 function getCurrentMovieData(request, response) {
-  console.log('[!]Getting movies');
+  console.log('[!]API Call: Getting movies');
   let query = request.query.data.search_query;
   let moviesURL = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&language=en-US&query=${query}&page=1&include_adult=false`;
   superagent.get(moviesURL)
@@ -232,7 +231,7 @@ function getCurrentMovieData(request, response) {
 }
 
 function getCurrentYelpData(request, response) {
-  console.log('[!]Getting yelp');
+  console.log('[!]API Call: Getting yelp');
   let lat = request.query.data.latitude;
   let long = request.query.data.longitude;
   let yelpURL = `https://api.yelp.com/v3/businesses/search?latitude=${lat}&longitude=${long}`;
