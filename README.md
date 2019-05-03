@@ -19,10 +19,10 @@ Architecture
 Change Log
 -->
 
-Number and name of feature: 1 Repository Setup Estimate of time needed to complete: 30 minutes Start time: 9:00 Finish time: 10:30 Actual time needed to complete: 1 hour 30 minutes
+Number and name of feature: 1 Repository Setup Estimate of time needed to complete: 30 minutes Start time: 9:00 Finish time: 11:30 Actual time needed to complete: 2 hour 30 minutes
 
-Number and name of feature: 2 Movies Estimate of time needed to complete: 30 minutes Start time: 9:50 Finish time: 11:00am Actual time needed to complete: 1 hour 10 minutes
+Number and name of feature: 2 Movies Estimate of time needed to complete: 30 minutes Start time: 11:30 Finish time: 12:15pm Actual time needed to complete: 45 minutes
 
-Number and name of feature: 3 Yelp Estimate of time needed to complete: 1.5 hours Start time: 11:00am Finish time: 1:20 Actual time needed to complete: 2 hours 20 minutes
+Number and name of feature: 3 Yelp Estimate of time needed to complete: 1.5 hours Start time: 12:15pm Finish time: 1:00pm Actual time needed to complete:  45 minutes
 
-Number and name of feature: 4 Deploy Estimate of time needed to complete: 1.5 hours Start time: 1:20pm Finish time: 1:50pm Actual time needed to complete: 30 minutes
+Number and name of feature: 4 Deploy Estimate of time needed to complete: 1.5 hours Start time: 1:00pm Finish time: 1:30pm Actual time needed to complete: 30 minutes
