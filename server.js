@@ -92,10 +92,12 @@ function getLocationData(query){
   let values = [query];
   return client.query(sqlStatement, values)
     .then((data) => {
+      console.log('[?]Check Database for location');
       if(data.rowCount > 0){
-        console.log('Data from DB');
+        console.log('[!]Get location from Database');
         return data.rows[0];
       }else{
+        console.log('[!]Getting Location');
         const geocodeURL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
         return superagent.get(geocodeURL)
           .then( res => {
@@ -132,9 +134,9 @@ function getYelp(request, response){
 }
 let expires = {
   weather: 120 * 1000, //expiration for weather
-  events: 120 + 1000,
-  movies: 120 + 1000,
-  yelp: 120 + 1000,
+  events: 120 * 1000,
+  movies: 120 * 1000,
+  yelp: 120 * 1000
 };
 
 let dataCurrentFunction = {
@@ -156,7 +158,7 @@ function getData(tableName, request, response) {
         let now = Date.now();
         if(now - dataTimeCreated > expires[tableName]){
           let sqlDeleteStatement = `DELETE FROM ${tableName} WHERE location_id = $1`;
-          console.log(`[!]Delete ${request.query.data.search_query} from Database`);
+          console.log(`[!]Delete ${request.query.data.search_query} from Database table ${tableName}`);
           client.query(sqlDeleteStatement, values)
             .then(() => {
               dataCurrentFunction[tableName](request, response);
@@ -171,6 +173,7 @@ function getData(tableName, request, response) {
 }
 
 function getCurrentWeatherData(request, response){
+  console.log('[!]Getting weathers');
   let lat = request.query.data.latitude;
   let long = request.query.data.longitude;
   let weatherURL = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${lat},${long}`;
