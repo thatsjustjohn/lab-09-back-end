@@ -24,9 +24,9 @@ const Location = function(queryData, res){
 };
 
 // Constructor for a DaysWeather.
-const Weather = function(forecast, time) {
-  this.forecast = forecast;
-  this.time = new Date(time * 1000).toDateString();
+const Weather = function(day) {
+  this.forecast = day.summary;
+  this.time = new Date(day.time * 1000).toDateString();
 };
 
 // Constructor for events
@@ -38,22 +38,14 @@ const Event = function(event) {
 };
 
 // Function for handling errors
-function errorHandling(error, status, response){
-  response.status(status).send('Sorry, something went wrong');
+function errorHandling(error, response){
+  console.log(error);
+  if(response) response.status(500).send('Sorry, something went wrong');
 }
 
 // express middleware
 app.use(cors());
 app.use(express.static('./public'));
-
-
-// Function for getting all the daily weather
-function getDailyWeather(weatherData){
-  let data = weatherData.daily.data;
-  const dailyWeather = data.map(element => (new Weather(element.summary, element.time)));
-
-  return dailyWeather;
-}
 
 // Function to get location data
 function getLocationData(query){
@@ -72,7 +64,7 @@ function getLocationData(query){
             let newLocation = new Location(query, res);
             let sqlInsertStatement = 'INSERT INTO location (search_query, formatted_query, latitude, longitude) VALUES ( $1, $2, $3, $4) RETURNING id;';
             let insertValues = Object.values(newLocation);
-            console.log('test insert values', Object.values(location));
+            console.log('test insert values', Object.values(newLocation));
             client.query(sqlInsertStatement, insertValues)
               .then(pgRes => {
                 newLocation.id = pgRes.rows[0].id;
@@ -85,6 +77,7 @@ function getLocationData(query){
 }
 
 function getWeather(request, response) {
+  console.log('getWeather', request);
   getData('weather', request, response);
 }
 
@@ -100,6 +93,7 @@ let dataCurrentFunction = {
 function getData(tableName, request, response) {
   let sqlStatement= `SELECT * FROM ${tableName} WHERE location_id = $1;`;
   let values = [request.query.data.id]; //can use object.values[4]
+  console.log(sqlStatement, values);
   client.query(sqlStatement, values)
     .then((data) => {
       if(data.rowCount > 0){
@@ -124,19 +118,20 @@ function getCurrentWeatherData(request, response){
   let lat = request.query.data.latitude;
   let long = request.query.data.longitude;
   let weatherURL = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${lat},${long}`;
+  console.log('inCurrentWEatherData');
   superagent.get(weatherURL)
     .then(result => {
       const weatherForecast = result.body.daily.data.map(day => {
         let newDaysWeather = new Weather(day);
         let sqlInsertStatement = 'INSERT INTO weather(forecast, time, created_at, location_id) VALUES ( $1, $2, $3, $4);';
         let values = Object.values(newDaysWeather);
-        values.concat([Date.now(), request.query.data.id]);
-        client.query(sqlInsertStatement, values);
+        console.log('Into DB', sqlInsertStatement, values.concat([Date.now(), request.query.data.id]));
+        client.query(sqlInsertStatement, values.concat([Date.now(), request.query.data.id]));
         return newDaysWeather;
       });
       response.send(weatherForecast);
     })
-    .catch(error => errorHandling(error, status, response));
+    .catch(error => errorHandling(error, response));
 }
 
 
@@ -153,7 +148,7 @@ function getEvents(request, response) {
       });
       response.send(events);
     })
-    .catch(error => errorHandling(error, status, response));
+    .catch(error => errorHandling(error, response));
 }
 
 // express endpoints
@@ -161,68 +156,11 @@ app.get('/location', (request, response) => {
   let queryData = request.query.data;
   getLocationData(queryData)
     .then(location => response.send(location))
-    .catch(error => errorHandling(error, status, response));
-  //try {
-  //   let geocodeURL = `https://maps.googleapis.com/maps/api/geocode/json?address=${queryData}&key=${process.env.GEOCODE_API_KEY}`;
-  //   superagent.get(geocodeURL)
-  //     .end( (err, googleMapsApiResponse) => {
-  //       // turn it into a location instance
-  //       const location = new Location(queryData, googleMapsApiResponse.body);
-  //       // send that as our response to our frontend
-  //       response.send(location);
-  //     });
-  // } catch( error ) {
-  //   console.log('There was an error /location path');
-  //   errorHandling(error, 500, 'Sorry, something went wrong.');
-  // }
+    .catch(error => errorHandling(error, response));
 });
 
 
 app.get('/weather', getWeather);
 app.get('/events', getEvents);
-
-// app.get('/weather', (request, response) => {
-//   // check for json file
-//   try {
-//     let lat = request.query.data.latitude;
-//     let long = request.query.data.longitude;
-
-//     let weatherURL = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${lat},${long}`;
-//     superagent
-//       .get(weatherURL)
-//       .end((err, weatherData) => {
-//         let weather = getDailyWeather(weatherData.body);
-//         response.send(weather);
-//       });
-//   } catch( error ) {
-//     console.log('There was an error /weather path');
-//     errorHandling(error, 500, 'Sorry, something went wrong.');
-//   }
-// });
-
-// app.get('/events/', (request, response) => {
-//   try {
-//     let lat = request.query.data.latitude;
-//     let long = request.query.data.longitude;
-
-//     let eventsURL = `https://www.eventbriteapi.com/v3/events/search?location.latitude=${lat}&location.longitude=${long}&token=${process.env.EVENTBRITE_API_KEY}`;
-
-//     superagent
-//       .get(eventsURL)
-//       .end((err, eventData) => {
-
-//         let receivedEvents = eventData.body.events.slice(0, 20);
-//         const events = receivedEvents.map((data) => {
-//           return new Event(data.url, data.name.text, data.start.local, data.description.text);
-//         });
-
-//         response.status(200).send(events);
-//       });
-//   } catch (error) {
-//     console.log('There was an error /events path');
-//     errorHandling(error, 500, 'Sorry, something went wrong.');
-//   }
-// });
-
 
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
