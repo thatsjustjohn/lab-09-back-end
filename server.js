@@ -13,7 +13,7 @@ const app = express();
 
 app.use(cors());
 
-// DB SETUP 
+// DB SETUP
 const client = new pg.Client(process.env.DATABASE_URL);
 client.connect();
 client.on('error', err => console.error(err));
@@ -30,6 +30,7 @@ app.get('/location', (request, response) => {
 app.get('/weather', getWeather);
 app.get('/events', getEvents);
 app.get('/movies', getMovies);
+app.get('/yelp', getYelp);
 
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
 
@@ -65,6 +66,14 @@ const Movie = function(movie){
   this.image_url = 'https://image.tmdb.org/t/p/w154'+ movie.poster_path;
   this.popularity = movie.popularity;
   this.released_on = movie.release_date;
+};
+
+const Yelp = function(yelp){
+  this.name = yelp.name;
+  this.image_url = yelp.image_url;
+  this.price = yelp.price;
+  this.rating = yelp.rating;
+  this.url = yelp.url;
 };
 
 // Function for handling errors
@@ -117,30 +126,37 @@ function getEvents(request, response) {
 function getMovies(request, response){
   getData('movies', request, response);
 }
+
+function getYelp(request, response){
+  getData('yelp', request, response);
+}
 let expires = {
   weather: 120 * 1000, //expiration for weather
   events: 120 + 1000,
-  movies: 120 + 1000
+  movies: 120 + 1000,
+  yelp: 120 + 1000,
 };
 
 let dataCurrentFunction = {
   weather: getCurrentWeatherData,
   events: getCurrentEventsData,
-  movies: getCurrentMovieData
+  movies: getCurrentMovieData,
+  yelp: getCurrentYelpData
 };
 
 function getData(tableName, request, response) {
   let sqlStatement= `SELECT * FROM ${tableName} WHERE location_id = $1;`;
   let values = [request.query.data.id]; //can use object.values[4]
-  console.log(sqlStatement, values);
+  console.log(`[?]Check Database for ${tableName} for location ${request.query.data.search_query}`);
   client.query(sqlStatement, values)
     .then((data) => {
       if(data.rowCount > 0){
-        console.log('Load from DB');
+        console.log(`[!]Load ${request.query.data.search_query} from Database`);
         let dataTimeCreated = data.rows[0].created_at;
         let now = Date.now();
         if(now - dataTimeCreated > expires[tableName]){
           let sqlDeleteStatement = `DELETE FROM ${tableName} WHERE location_id = $1`;
+          console.log(`[!]Delete ${request.query.data.search_query} from Database`);
           client.query(sqlDeleteStatement, values)
             .then(() => {
               dataCurrentFunction[tableName](request, response);
@@ -175,6 +191,7 @@ function getCurrentWeatherData(request, response){
 
 
 function getCurrentEventsData(request, response) {
+  console.log('[!]Getting events');
   let lat = request.query.data.latitude;
   let long = request.query.data.longitude;
   let eventsURL = `https://www.eventbriteapi.com/v3/events/search?location.latitude=${lat}&location.longitude=${long}&token=${process.env.EVENTBRITE_API_KEY}`;
@@ -194,17 +211,15 @@ function getCurrentEventsData(request, response) {
 }
 
 function getCurrentMovieData(request, response) {
-  console.log('getting movies');
+  console.log('[!]Getting movies');
   let query = request.query.data.search_query;
   let moviesURL = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&language=en-US&query=${query}&page=1&include_adult=false`;
   superagent.get(moviesURL)
     .then(result => {
       const movies = result.body.results.map(movieData => {
         const newMovie= new Movie(movieData);
-        // console.log(newMovie);
         let sqlInsertStatement = 'INSERT INTO movies(title, overview, average_votes, total_votes, image_url, popularity, released_on, created_at, location_id) VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9);';
         let values = Object.values(newMovie);
-        // console.log('Into DB', sqlInsertStatement, values.concat([Date.now(), request.query.data.id]));
         client.query(sqlInsertStatement, values.concat([Date.now(), request.query.data.id]));
         return newMovie;
       });
@@ -213,3 +228,22 @@ function getCurrentMovieData(request, response) {
     .catch(error => errorHandling(error, response));
 }
 
+function getCurrentYelpData(request, response) {
+  console.log('[!]Getting yelp');
+  let lat = request.query.data.latitude;
+  let long = request.query.data.longitude;
+  let yelpURL = `https://api.yelp.com/v3/businesses/search?latitude=${lat}&longitude=${long}`;
+  superagent.get(yelpURL)
+    .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+    .then(result => {
+      const yelps = result.body.businesses.map(yelpData => {
+        const newYelp = new Yelp(yelpData);
+        let sqlInsertStatement = 'INSERT INTO yelp(name, image_url, price, rating, url, created_at, location_id) VALUES ( $1, $2, $3, $4, $5, $6, $7);';
+        let values = Object.values(newYelp);
+        client.query(sqlInsertStatement, values.concat([Date.now(), request.query.data.id]));
+        return newYelp;
+      });
+      response.send(yelps);
+    })
+    .catch(error => errorHandling(error, response));
+}
